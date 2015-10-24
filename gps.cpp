@@ -69,42 +69,51 @@ int main( void ) {
    }
 
    /**
-    * Write logic (used to configure the GPS update rate).
+    * Write configuration logic (used to configure the GPS update rate).
     * The GPS uses the PMTK protocol to control and change
     * various attributes and settings.
     * Documentation for this protocol can be found:
     * https://www.adafruit.com/datasheets/PMTK_A08.pdf
+    * http://www.adafruit.com/datasheets/PMTK_A11.pdf
+    *
+    * Part of the PMTK message is the checksum field. Use this website
+    * to compute the checksum: http://www.hhhh.org/wiml/proj/nmeaxor.html
     */
+   const char *str;
 
-   /*char cmd[256];
-   memset(cmd, 0, 256);*/
+   // Not sure if we need to do a full cold start or not. Commenting
+   // out for now.
+   /*// Perform full cold start
+   str = "$PMTK104*37\r\n";
+   cout << "Write Val: " << write( USB, str, strlen( str ) ) << endl;*/
 
-   const char *str = "$PMTK869,1,0*34\r\n";
-   write( USB, str, sizeof( str ) - 1 );
-   const char *str2 = "$PMTK220,200*2C\r\n";
-   write( USB, str2, sizeof( str2 ) - 1 );
-
-   /*char *ptr = cmd;
-   *ptr++ = *str++;
-
-   uint8_t crc = 0;
-   uint32_t tx = 0;
-   for(int i = 1; *str && i < (sizeof(cmd) - 4); i++) {
-      crc ^= *str;
-      *ptr++ = *str++;
-      tx++;
+   // Only receive GPSRMC messages
+   str = "$PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n";
+   cout << "PMTK String: " << str;
+   if ( strlen( str ) != write( USB, str, strlen( str ) ) ) {
+      cout << "Read only GPSRMC messages failed." << endl;
    }
-   sprintf(ptr, "*%02X", crc);
-   tx += 5; // '*XX<CR><LF>
 
-   write( USB, ptr, sizeof( ptr ) );*/
+   // Turn off the EASY function because it only works for 1Hz.
+   // Not 100% sure if this is necessary. Leaving in for now.
+   str = "$PMTK869,1,0*34\r\n";
+   cout << "PMTK String: " << str;
+   if ( strlen( str ) != write( USB, str, strlen( str ) ) ) {
+      cout << "Turn off EASY function failed." << endl;
+   }
 
-   /* Read stuff */
+   // Change update rate to 5Hz.
+   str = "$PMTK220,200*2C\r\n";
+   cout << "PMTK String: " << str;
+   if ( strlen( str ) != write( USB, str, strlen( str ) ) ) {
+      cout << "Change update rate to 5Hz failed." << endl;
+   }
+
+   /* Read the GPS NMEA messages */
    int n = 0,
        spot = 0;
    char buf = '\0';
 
-   /* Whole response */
    char response[1024];
    memset( response, '\0', sizeof( response ) );
 
@@ -119,6 +128,7 @@ int main( void ) {
          spot += n;
       } while( buf != '\r' && n > 0 );
 
+      // Print out response message
       if ( n < 0 ) {
          std::cout << "Error reading: " << strerror( errno ) << std::endl;
       } else if ( n == 0 ) {

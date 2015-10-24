@@ -16,3 +16,6 @@ The first step in debugging is to check if the GPS is actually getting a fix. Yo
   * `ps -ax | grep "gps"`
   * If the daemon is not running, execute the following to start the daemon:
     * `sudo gpsd /dev/ttyACM0 -F /var/run/gpsd.sock`
+
+## Additional Notes
+In a variety of different tutorials (e.g. http://blog.retep.org/2012/06/18/getting-gps-to-work-on-a-raspberry-pi/) it says to use `/dev/ttyUSB0`. However for our GPS model, it uses `/dev/ACM0`.

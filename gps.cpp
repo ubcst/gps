@@ -9,11 +9,13 @@
  */
 
 #include <iostream>
-#include <string.h>
+#include <sstream>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <vector>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,6 +23,29 @@
 #include <termios.h>
 
 using namespace std;
+
+/**
+ * Code to split a string. Taken from:
+ * http://stackoverflow.com/questions/236129/split-a-string-in-c
+ */
+vector<string> &split( const string &s, char delim, vector<string> &elems ) {
+   stringstream ss( s );
+   string item;
+   while( getline( ss, item, delim ) ) {
+      elems.push_back( item );
+   }
+   return elems;
+}
+
+/**
+ * Splits a string s based on the delim parameter.
+ * Returns a vector of the split elements.
+ */
+vector<string> split( const string &s, char delim ) {
+   vector<string> elems;
+   split( s, delim, elems );
+   return elems;
+}
 
 int main( void ) {
    const char* USB_PATH = "/dev/ttyACM0";
@@ -119,6 +144,7 @@ int main( void ) {
 
    while ( true ) {
       spot = 0;
+      /* Read a NMEA line */
       do {
          n = read( USB, &buf, 1 );
          if ( buf == '\n' ) {
@@ -128,15 +154,41 @@ int main( void ) {
          spot += n;
       } while( buf != '\r' && n > 0 );
 
-      // Print out response message
-      if ( n < 0 ) {
-         std::cout << "Error reading: " << strerror( errno ) << std::endl;
-      } else if ( n == 0 ) {
-         std::cout << "Read nothing!" << std::endl;
-      } else {
-         std::cout << "Response: " << response << std::endl;
+      // Split the string based on the comma delimiter
+      string resp( response );
+      vector<string> nmeaLine = split( resp, ',' );
+
+      // Check if read line is a PMTK message
+      string prefix = "$PMTK";
+      if ( !nmeaLine.at(0).compare( 0, prefix.size(), prefix ) ) {
+         cout << "PMTK message: " << response << endl;
+         continue;
       }
+
+      // Check if number of values in the nmeaLine is the number of
+      // values we expect the GPSRMC message to have.
+      if ( nmeaLine.size() < 12 ) {
+         cout << "Too few elements: " << response << endl;
+         continue;
+      }
+
+      // Check if the NMEA line is valid
+      if ( nmeaLine.at( 2 ) == "V" ) {
+         cout << "Invalid message: " << response << endl;
+         continue;
+      }
+
+      // Print out response message
+      string timeStamp = nmeaLine.at(1);
+      double latitude = atof( nmeaLine.at(3).c_str() ) / 100.00;
+      string northSouth = nmeaLine.at(4);
+      double longitude = atof( nmeaLine.at(5).c_str() ) / 100.00;
+      string eastWest = nmeaLine.at(6);
+      cout << "Timestamp: " << timeStamp << " Latitude: " << latitude <<
+         northSouth << " Longitude: " << longitude << eastWest << endl;
    }
 
    return 0;
 }
+
+
